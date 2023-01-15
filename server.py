@@ -78,7 +78,7 @@ class UserDB:
         return self.DB
 
 class SessionBackend:
-    '''백엔드의 session 저장소, 실제 프로덕션 상황에서는 mysql이나 mongodb이나 redis로 대체'''
+    '''백엔드의 session 저장소, 대충 만든 것, 실제 프로덕션 상황에서는 mysql이나 mongodb이나 redis로 대체'''
     def __init__(self):
         self.sessions = []
 
