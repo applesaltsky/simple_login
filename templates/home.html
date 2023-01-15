@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>LoginPage</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css@1.12/mvp.css" />
+</head>
+<body>
+    {% if loggedIn %}
+    <div>hello, {{nickname}}, nice to see you! </div>
+    <div> you can change your nickname</div>
+        {% if admin %}
+        <div><a href="/admin">admin panel</a></div>
+        {% endif %}
+    <br>
+    <form method="post" action="/modify" enctype="application/x-www-form-urlencoded">
+        <input placeholder="Nickname" name='nickname' value='{{nickname}}' required type='text'></input>
+        <input type='submit' value='Change nickname' />
+    </form>
+    <form method="post" action="/logout" enctype="application/x-www-form-urlencoded">
+        <input type='submit' value='Logout' />
+    </form>
+    {% else %}
+        {% if errormessage %}
+        <div>{{errormessage}}</div>
+        {% endif %}   
+        <a href="/join"><div>join</div></a>
+    <div>(admin) username : admin  pw : 1234 / (general) username : test  pw : 1111</div>
+    <br>
+    <form method="post" action="/login" enctype="application/x-www-form-urlencoded">
+        <input placeholder="Username" name='username' required type='text'></input>
+        <input placeholder="Password" name='password' required type='password'></input>
+        <input type='submit' value='Login' />
+    </form>
+    {% endif %}
+
+</body>
+</html>

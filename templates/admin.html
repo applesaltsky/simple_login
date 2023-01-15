@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AdminPage</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css@1.12/mvp.css" />
+</head>
+<body>
+    <div> admin panel </div>
+    <br>
+    <div> all user list </div>
+    <ul>
+    {% for user in userDB %}
+    <li >username : {{user.username}}</li>
+        <ul>
+            <li>authority : {{user.authority}}</li>
+            <li>nickname : {{user.nickname}}</li>
+        </ul>
+    <form  method="post" action="/admin" enctype="application/x-www-form-urlencoded">
+        <input type="hidden" name="username" value="{{user.username}}"></input>
+        <input type="submit" value='Give admin privilege to this user.'></input>
+    </form>
+    {% endfor %}   
+    </ul>
+    <div><a href='/'>home</a></div>
+</body>
+</html>

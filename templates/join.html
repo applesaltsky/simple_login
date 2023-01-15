@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>JoinPage</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css@1.12/mvp.css" />
+</head>
+<body>
+    {% if errormessage %}
+    <div>{{errormessage}}</div>
+    {% else %}    
+    <div>join</div>
+    {% endif %}  
+    <br>
+    <form method="post" action="/join" enctype="application/x-www-form-urlencoded">
+        <input placeholder="Username" name='username' required type='text'></input>
+        <input placeholder="Password" name='password1' required type='password'></input>
+        <input placeholder="Password confirmed" name='password2' required type='password'></input>
+        <input placeholder="Nickname" name='nickname' required type='text'></input>
+        <input type='submit' value='Join' />
+    </form>
+    <div><a href='/'>home</a></div>
+</body>
+</html>
