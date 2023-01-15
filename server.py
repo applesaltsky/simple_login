@@ -6,7 +6,6 @@ from fastapi import FastAPI, Form, Request, status, Cookie
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
 from uuid import uuid4
 from typing import Union
 
@@ -15,6 +14,7 @@ class UserDB:
     def __init__(self):
         self.DB = [
                         {
+
                             'username':'admin',
                             'password':'1234',
                             'authority':'admin',
@@ -41,32 +41,32 @@ class UserDB:
         self.DB.append(new_user)
         return new_user  
 
-    def find(self,username,password):
-        for index,data in enumerate(self.DB):
-            if username == data["username"] and password == data["password"]:
-                return index
-        return -1
-
-    def findUsername(self,username):
+    def find(self,username):
         for index,data in enumerate(self.DB):
             if username == data["username"]:
                 return index
         return -1
 
-    def get(self,username,password):
+    def get(self,username):
         for data in self.DB:
-            if username == data["username"] and password == data["password"]:
+            if username == data["username"]:
                 return data
         return False
 
-    def delete(self,username,password):
-        index = self.find(username,password)
+    def delete(self,username):
+        index = self.find(username)
         if not index == -1:
             del self.DB[index]
         return self.DB
 
+    def verify(self,username,password):
+        for data in self.DB:
+            if username == data["username"] and password == data['password']:
+                return True
+        return False        
+
     def modify(self,username,password,authority,nickname):
-        index = self.find(username,password)
+        index = self.find(username)
         if not index == -1:
             new_user = {
                                 'username':username,
@@ -78,7 +78,7 @@ class UserDB:
         return self.DB
 
 class SessionBackend:
-    '''백엔드의 session 저장소, 실제 프로덕션 상황에서는 mysql이나 mongodb로 대체'''
+    '''백엔드의 session 저장소, 실제 프로덕션 상황에서는 mysql이나 mongodb이나 redis로 대체'''
     def __init__(self):
         self.sessions = []
 
@@ -96,7 +96,7 @@ class SessionBackend:
         return -1
 
     def get(self,key):
-        for index, session in enumerate(self.sessions):
+        for session in self.sessions:
             if key in session:
                 return session[key]
         return False
@@ -113,14 +113,13 @@ class SessionBackend:
             self.sessions[index] = {key:new_user}
         return new_user
 
-
-def getUniqueID(): 
-    sessionID = str(uuid4())
-    validSessionID = sessionStore.find(sessionID) == -1
-    while validSessionID is not True:               
+    def getUniqueID(self): 
         sessionID = str(uuid4())
-        validSessionID = sessionStore.find(sessionID) == -1
-    return sessionID
+        validSessionID = self.find(sessionID) == -1
+        while validSessionID is not True:               
+            sessionID = str(uuid4())
+            validSessionID = self.find(sessionID) == -1
+        return sessionID
 
 
 
@@ -166,12 +165,12 @@ async def root(request: Request,sessionID: Union[str, None] = Cookie(default=Non
 
 @app.post("/login")
 async def login(username: str = Form(), password: str = Form()):
-    validUser = userDB.find(username,password) != -1
+    validUser = userDB.verify(username,password) 
 
     if validUser is False :  
         #로그인에 실패했다면, 로그인에 실패한 정보가 담긴 session을 발급하고 초기 화면으로 돌린다.
         #초기 화면에 id, pw가 잘못 되었으니 다시 확인해보라는 메시지를 출력하기 위함. 
-        sessionID = getUniqueID()
+        sessionID = sessionStore.getUniqueID()
         response = RedirectResponse(url='/', status_code=status.HTTP_303_SEE_OTHER)
         response.set_cookie(key="sessionID", value=sessionID)
 
@@ -180,14 +179,14 @@ async def login(username: str = Form(), password: str = Form()):
         return response
     
     #로그인에 성공했다면
-    sessionID = getUniqueID()
+    sessionID = sessionStore.getUniqueID()
     response = RedirectResponse(url='/', status_code=status.HTTP_303_SEE_OTHER)
 
     #client에 sessionID가 담긴 쿠키 발행 
     response.set_cookie(key="sessionID", value=sessionID)  
 
     #backend 내 sessionStore에  {sessionID : 유저 정보} 쌍을 삽입
-    userdata = userDB.get(username,password) 
+    userdata = userDB.get(username) 
     userdata['loggedIn'] = True
     sessionStore.create(key=sessionID,value=userdata)  
 
@@ -217,7 +216,7 @@ async def modify(nickname: str = Form(), sessionID: Union[str, None] = Cookie(de
     sessionStore.modify(sessionID,sessionUserdata)
 
     #db 정보 수정
-    DBUserdata = userDB.get(username,password)
+    DBUserdata = userDB.get(username)
     DBUserdata["nickname"] = nickname
     userDB.modify(DBUserdata["username"],DBUserdata["password"],DBUserdata["authority"],DBUserdata["nickname"])
 
@@ -230,7 +229,7 @@ async def modify(nickname: str = Form(), sessionID: Union[str, None] = Cookie(de
 @app.get("/join")
 async def getJoin(request: Request, sessionID: Union[str, None] = Cookie(default=None)):
     if sessionID is not None:  
-        #만약 로그인 된 상태에서 url쳐서 join 화면에 들어온다면, 로그아웃 시켜버림 
+        #만약 로그인 된 상태에서 url쳐서 join 화면에 들어온다면, 로그아웃 
         response = RedirectResponse(url='/join')
         response.delete_cookie('sessionID')  #client의 session 삭제
         sessionStore.delete(sessionID)       #sessionStore의 session 삭제
@@ -240,7 +239,7 @@ async def getJoin(request: Request, sessionID: Union[str, None] = Cookie(default
 
 @app.post("/join") 
 async def postJoin(request: Request,username: str = Form(),password1: str = Form(),password2: str = Form(),nickname: str = Form()):
-    validUsername = userDB.findUsername(username) == -1
+    validUsername = userDB.find(username) == -1
     if validUsername is False:
         #USERNAME 중복 체크
         response = templates.TemplateResponse("join.html",{
@@ -262,7 +261,7 @@ async def postJoin(request: Request,username: str = Form(),password1: str = Form
 
 @app.get("/admin")
 async def getAdmin(request: Request, sessionID: Union[str, None] = Cookie(default=None)):
-    #admin panel은 admin user만 들어올 수 있어야 함
+    #admin panel은 admin user만 들어올 수 있어야 함 -> url 보호 필요. 이 부분을 middleware로 만들어도 괜찮겠다.
     if sessionID is None:
         #로그인이 안 되어 있거나
         response = RedirectResponse(url='/')
@@ -270,7 +269,7 @@ async def getAdmin(request: Request, sessionID: Union[str, None] = Cookie(defaul
 
     userdata = sessionStore.get(sessionID)
     if userdata['authority'] != 'admin':
-        #admin 유저가 아니면 홈 화면으로 쫓아낸다.
+        #admin 유저가 아니면 홈 화면으로 리다이렉트.
         response = RedirectResponse(url='/')
         return response
 
@@ -279,8 +278,7 @@ async def getAdmin(request: Request, sessionID: Union[str, None] = Cookie(defaul
 
 @app.post("/admin")
 async def postAdmin(request: Request, username: str = Form()):
-    targetUserIndex=userDB.findUsername(username)
-    userdata = userDB.showAll()[targetUserIndex]
+    userdata = userDB.get(username) 
 
     new_userdata = userdata.copy()
     new_userdata['authority'] = 'admin'
